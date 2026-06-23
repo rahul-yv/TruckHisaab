@@ -1,0 +1,48 @@
+<resources>
+    <string name="app_name">TruckHisaab</string>
+    <string name="tagline">Truck ka hisaab, ab aasaan</string>
+
+    <!-- Dashboard -->
+    <string name="aaj_ka_hisaab">Aaj ka Hisaab</string>
+    <string name="is_hafte">Is Hafte</string>
+    <string name="is_mahine">Is Mahine</string>
+    <string name="naya_trip">Naya Trip</string>
+    <string name="kharcha_daalo">Kharcha Daalo</string>
+    <string name="hisaab_dekho">Hisaab Dekho</string>
+    <string name="documents">Documents</string>
+    <string name="recent_trips">Recent Trips</string>
+
+    <!-- Trip -->
+    <string name="from_location">From (Kahaan se)</string>
+    <string name="to_location">To (Kahaan tak)</string>
+    <string name="cargo_type">Cargo Type (Maal)</string>
+    <string name="weight_tons">Weight (Tons)</string>
+    <string name="freight_amount">Freight Amount (₹)</string>
+    <string name="party_name">Party Name</string>
+    <string name="driver_name">Driver Name</string>
+    <string name="trip_shuru">Trip Shuru</string>
+    <string name="trip_khatam">Trip Khatam</string>
+
+    <!-- Expense -->
+    <string name="save_kharcha">Save Kharcha</string>
+    <string name="amount">Amount (₹)</string>
+    <string name="note">Note</string>
+
+    <!-- Reports -->
+    <string name="total_income">Total Income</string>
+    <string name="total_expense">Total Expense</string>
+    <string name="net_profit">Net Profit</string>
+    <string name="pdf_download">PDF Download</string>
+    <string name="share_whatsapp">Share WhatsApp</string>
+
+    <!-- Profile -->
+    <string name="add_truck">Truck Jodo</string>
+    <string name="whatsapp_connect">WhatsApp Bot Connect</string>
+
+    <!-- Bottom Nav -->
+    <string name="home">Home</string>
+    <string name="trips">Trips</string>
+    <string name="kharcha">Kharcha</string>
+    <string name="hisaab">Hisaab</string>
+    <string name="profile">Profile</string>
+</resources>
