@@ -1,0 +1,123 @@
+package com.truckhisaab.ui.screens.truck
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.truckhisaab.ui.components.ConfirmDialog
+import com.truckhisaab.ui.components.THTopBar
+import com.truckhisaab.ui.components.formatINR
+import com.truckhisaab.ui.theme.DangerRed
+import com.truckhisaab.ui.theme.SuccessGreen
+import com.truckhisaab.ui.theme.TextSecondary
+import com.truckhisaab.ui.theme.TruckRed
+
+@Composable
+fun TruckDetailScreen(truckId: String, onBack: () -> Unit, viewModel: TruckViewModel = viewModel()) {
+    val truck = viewModel.getTruck(truckId) ?: run { onBack(); return }
+    val trips = viewModel.getTruckTrips(truck.number)
+    val expenses = viewModel.getTruckExpenses(truck.number)
+    val docs = viewModel.getTruckDocs(truck.number)
+    val totalIncome = trips.sumOf { it.freightAmount }
+    val totalExpense = expenses.sumOf { it.amount }
+    var showDelete by remember { mutableStateOf(false) }
+
+    if (showDelete) {
+        ConfirmDialog("Delete Truck", "Pakka delete karna hai?", onConfirm = { viewModel.deleteTruck(truckId); onBack() }, onDismiss = { showDelete = false })
+    }
+
+    Scaffold(
+        topBar = {
+            THTopBar(title = truck.number, onBack = onBack, actions = {
+                IconButton(onClick = { showDelete = true }) { Icon(Icons.Default.Delete, "Delete", tint = Color.White) }
+            })
+        }
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Truck Info", fontWeight = FontWeight.Bold)
+                    HorizontalDivider()
+                    DetailRow("Number", truck.number)
+                    DetailRow("Type", truck.type.label)
+                    DetailRow("Make", "${truck.manufacturer} ${truck.model}")
+                    DetailRow("Year", "${truck.yearOfPurchase}")
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                StatCard("Trips", "${trips.size}", TruckRed, Modifier.weight(1f))
+                StatCard("Income", formatINR(totalIncome), SuccessGreen, Modifier.weight(1f))
+                StatCard("Expense", formatINR(totalExpense), DangerRed, Modifier.weight(1f))
+            }
+
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = if (totalIncome - totalExpense >= 0) SuccessGreen.copy(0.1f) else DangerRed.copy(0.1f))) {
+                Column(Modifier.padding(16.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    Text("Truck P&L", fontSize = 14.sp, color = TextSecondary)
+                    Text(formatINR(totalIncome - totalExpense), fontWeight = FontWeight.Bold, fontSize = 24.sp, color = if (totalIncome - totalExpense >= 0) SuccessGreen else DangerRed)
+                }
+            }
+
+            if (docs.isNotEmpty()) {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Documents (${docs.size})", fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        docs.forEach { d ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(d.type.label, fontSize = 13.sp)
+                                Text(d.documentNumber, fontSize = 13.sp, color = TextSecondary)
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(80.dp))
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, fontSize = 13.sp, color = TextSecondary)
+        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun StatCard(label: String, value: String, color: Color, modifier: Modifier) {
+    Card(modifier, shape = RoundedCornerShape(10.dp), colors = CardDefaults.cardColors(containerColor = color.copy(0.1f))) {
+        Column(Modifier.padding(12.dp)) {
+            Text(label, fontSize = 11.sp, color = TextSecondary)
+            Text(value, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = color)
+        }
+    }
+}
