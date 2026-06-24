@@ -1,22 +1,12 @@
 package com.truckhisaab.ui.screens.other
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalGasStation
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -25,21 +15,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.truckhisaab.data.AppContainer
-import com.truckhisaab.ui.components.EmptyState
-import com.truckhisaab.ui.components.THTopBar
-import com.truckhisaab.ui.components.formatDate
-import com.truckhisaab.ui.components.formatINR
-import com.truckhisaab.ui.theme.DangerRed
-import com.truckhisaab.ui.theme.InfoBlue
-import com.truckhisaab.ui.theme.TextHint
-import com.truckhisaab.ui.theme.TextSecondary
-import com.truckhisaab.ui.theme.TruckRed
-import com.truckhisaab.ui.theme.WarningOrange
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.truckhisaab.ui.components.*
+import com.truckhisaab.ui.screens.expense.ExpenseViewModel
+import com.truckhisaab.ui.theme.*
 
 @Composable
-fun FuelTrackerScreen(onBack: () -> Unit) {
-    val entries by AppContainer.expenseRepository.fuelEntries.collectAsState()
+fun FuelTrackerScreen(onBack: () -> Unit, viewModel: ExpenseViewModel = hiltViewModel()) {
+    val entries by viewModel.fuelEntries.collectAsState()
     val totalLiters = entries.sumOf { it.liters }
     val totalAmount = entries.sumOf { it.totalAmount }
     val avgRate = if (entries.isNotEmpty()) entries.sumOf { it.pricePerLiter } / entries.size else 0.0
@@ -61,7 +44,7 @@ fun FuelTrackerScreen(onBack: () -> Unit) {
                             Row(Modifier.padding(14.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column {
                                     Text("${entry.liters.toInt()} Litres @ ₹${entry.pricePerLiter}/L", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                    Text("Truck: ${entry.truckId}", fontSize = 12.sp, color = TextSecondary)
+                                    Text("Truck: ${entry.truckNumber}", fontSize = 12.sp, color = TextSecondary)
                                     Text(formatDate(entry.date), fontSize = 11.sp, color = TextHint)
                                 }
                                 Text(formatINR(entry.totalAmount), fontWeight = FontWeight.Bold, fontSize = 16.sp, color = DangerRed)

@@ -163,24 +163,22 @@ fun TruckHisaabNavGraph() {
                 TripListScreen(
                     onBack = { navController.popBackStack() },
                     onAddTrip = { navController.navigate(Screen.AddTrip.route) },
-                    onTripDetail = { navController.navigate(Screen.TripDetail.createRoute(it)) },
-                    onActiveTrip = { navController.navigate(Screen.ActiveTrip.createRoute(it)) }
+                    onTripDetail = { navController.navigate(Screen.TripDetail.createRoute(it)) }
                 )
             }
             composable(Screen.AddTrip.route) {
-                AddTripScreen(onBack = { navController.popBackStack() }, onDone = { navController.popBackStack() })
+                AddTripScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.TripDetail.route) { entry ->
-                val tripId = entry.arguments?.getString("tripId") ?: ""
+                val tripId = entry.arguments?.getString("tripId")?.toLongOrNull() ?: 0L
                 TripDetailScreen(tripId = tripId, onBack = { navController.popBackStack() })
             }
             composable(Screen.ActiveTrip.route) { entry ->
-                val tripId = entry.arguments?.getString("tripId") ?: ""
+                val tripId = entry.arguments?.getString("tripId")?.toLongOrNull() ?: 0L
                 ActiveTripScreen(
                     tripId = tripId,
                     onBack = { navController.popBackStack() },
-                    onAddExpense = { navController.navigate(Screen.AddExpense.route) },
-                    onComplete = { navController.popBackStack() }
+                    onAddExpense = { navController.navigate(Screen.AddExpense.route) }
                 )
             }
 
@@ -193,7 +191,7 @@ fun TruckHisaabNavGraph() {
                 )
             }
             composable(Screen.AddExpense.route) {
-                AddExpenseScreen(onBack = { navController.popBackStack() }, onDone = { navController.popBackStack() })
+                AddExpenseScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.ExpenseAnalytics.route) {
                 ExpenseAnalyticsScreen(onBack = { navController.popBackStack() })
@@ -216,10 +214,10 @@ fun TruckHisaabNavGraph() {
                 )
             }
             composable(Screen.AddDocument.route) {
-                AddDocumentScreen(onBack = { navController.popBackStack() }, onDone = { navController.popBackStack() })
+                AddDocumentScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.DocumentDetail.route) { entry ->
-                val docId = entry.arguments?.getString("docId") ?: ""
+                val docId = entry.arguments?.getString("docId")?.toLongOrNull() ?: 0L
                 DocumentDetailScreen(docId = docId, onBack = { navController.popBackStack() })
             }
 
@@ -232,10 +230,10 @@ fun TruckHisaabNavGraph() {
                 )
             }
             composable(Screen.AddTruck.route) {
-                AddTruckScreen(onBack = { navController.popBackStack() }, onDone = { navController.popBackStack() })
+                AddTruckScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.TruckDetail.route) { entry ->
-                val truckId = entry.arguments?.getString("truckId") ?: ""
+                val truckId = entry.arguments?.getString("truckId")?.toLongOrNull() ?: 0L
                 TruckDetailScreen(truckId = truckId, onBack = { navController.popBackStack() })
             }
 
@@ -251,7 +249,7 @@ fun TruckHisaabNavGraph() {
                 AddDriverScreen(onBack = { navController.popBackStack() }, onDone = { navController.popBackStack() })
             }
             composable(Screen.DriverDetail.route) { entry ->
-                val driverId = entry.arguments?.getString("driverId") ?: ""
+                val driverId = entry.arguments?.getString("driverId")?.toLongOrNull() ?: 0L
                 DriverDetailScreen(driverId = driverId, onBack = { navController.popBackStack() })
             }
 

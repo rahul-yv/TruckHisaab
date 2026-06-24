@@ -1,16 +1,7 @@
 package com.truckhisaab.ui.screens.driver
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,12 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -33,17 +19,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.truckhisaab.ui.components.EmptyState
 import com.truckhisaab.ui.components.THTopBar
 import com.truckhisaab.ui.components.formatINR
-import com.truckhisaab.ui.theme.InfoBlue
-import com.truckhisaab.ui.theme.TextHint
-import com.truckhisaab.ui.theme.TextSecondary
-import com.truckhisaab.ui.theme.TruckRed
+import com.truckhisaab.ui.theme.*
 
 @Composable
-fun DriverListScreen(onBack: () -> Unit, onAddDriver: () -> Unit, onDriverDetail: (String) -> Unit, viewModel: DriverViewModel = viewModel()) {
+fun DriverListScreen(onBack: () -> Unit, onAddDriver: () -> Unit, onDriverDetail: (Long) -> Unit, viewModel: DriverViewModel = hiltViewModel()) {
     val drivers by viewModel.drivers.collectAsState()
 
     Scaffold(
