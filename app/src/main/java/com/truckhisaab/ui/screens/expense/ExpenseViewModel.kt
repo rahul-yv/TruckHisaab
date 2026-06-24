@@ -1,97 +1,77 @@
 package com.truckhisaab.ui.screens.expense
 
 import androidx.lifecycle.ViewModel
-import com.truckhisaab.data.AppContainer
-import com.truckhisaab.data.model.Expense
-import com.truckhisaab.data.model.ExpenseCategory
-import com.truckhisaab.data.model.FuelEntry
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import androidx.lifecycle.viewModelScope
+import com.truckhisaab.domain.model.*
+import com.truckhisaab.domain.repository.*
+import com.truckhisaab.util.startOfMonth
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class AddExpenseState(
-    val category: ExpenseCategory? = null,
-    val amount: String = "",
-    val description: String = "",
-    val tripId: String? = null,
-    val truckNumber: String = "",
-    val liters: String = "",
-    val ratePerLiter: String = "",
-    val showSuccess: Boolean = false
+    val category: ExpenseCategory? = null, val amount: String = "",
+    val note: String = "", val truckId: Long = 0, val truckNumber: String = "",
+    val tripId: Long? = null, val liters: String = "", val pricePerLiter: String = "",
+    val isSaving: Boolean = false
 )
 
-data class ExpenseListFilter(
-    val category: ExpenseCategory? = null,
-    val searchQuery: String = ""
-)
+@HiltViewModel
+class ExpenseViewModel @Inject constructor(
+    private val expenseRepo: ExpenseRepository,
+    private val truckRepo: TruckRepository
+) : ViewModel() {
 
-class ExpenseViewModel : ViewModel() {
-    private val repo = AppContainer.expenseRepository
-    val expenses = repo.expenses
-    val fuelEntries = repo.fuelEntries
+    val expenses = expenseRepo.getAllExpenses().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val trucks = truckRepo.getAllTrucks().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val fuelEntries = expenseRepo.getAllFuelEntries().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val categoryBreakdown = expenseRepo.getCategoryBreakdown(startOfMonth()).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _addState = MutableStateFlow(AddExpenseState())
     val addState: StateFlow<AddExpenseState> = _addState.asStateFlow()
 
-    private val _filter = MutableStateFlow(ExpenseListFilter())
-    val filter: StateFlow<ExpenseListFilter> = _filter.asStateFlow()
+    private val _filterCategory = MutableStateFlow<ExpenseCategory?>(null)
+    val filterCategory: StateFlow<ExpenseCategory?> = _filterCategory.asStateFlow()
 
-    fun filteredExpenses(): List<Expense> {
-        val f = _filter.value
-        var list = expenses.value
-        if (f.category != null) list = list.filter { it.category == f.category }
-        if (f.searchQuery.isNotBlank()) {
-            val q = f.searchQuery.lowercase()
-            list = list.filter { it.note.lowercase().contains(q) || it.category.label.lowercase().contains(q) }
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    val filteredExpenses = combine(expenses, _filterCategory, _searchQuery) { list, cat, q ->
+        list.filter { e ->
+            val matchCat = cat == null || e.category == cat
+            val matchQ = q.isBlank() || e.note.contains(q, true) || e.truckNumber.contains(q, true)
+            matchCat && matchQ
         }
-        return list.sortedByDescending { it.date }
-    }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun setFilterCategory(c: ExpenseCategory?) = _filter.update { it.copy(category = c) }
-    fun setSearch(q: String) = _filter.update { it.copy(searchQuery = q) }
+    fun updateFilter(c: ExpenseCategory?) { _filterCategory.value = c }
+    fun updateSearch(q: String) { _searchQuery.value = q }
+    fun updateAddState(update: AddExpenseState.() -> AddExpenseState) { _addState.update { it.update() } }
+    fun resetAddState() { _addState.value = AddExpenseState() }
 
-    fun updateField(field: String, value: String) {
-        _addState.update {
-            when (field) {
-                "amount" -> it.copy(amount = value)
-                "desc" -> it.copy(description = value)
-                "truck" -> it.copy(truckNumber = value)
-                "liters" -> it.copy(liters = value)
-                "rate" -> it.copy(ratePerLiter = value)
-                else -> it
-            }
-        }
-    }
-
-    fun setCategory(c: ExpenseCategory) = _addState.update { it.copy(category = c) }
-    fun setTripId(id: String?) = _addState.update { it.copy(tripId = id) }
-
-    fun saveExpense() {
-        val s = _addState.value
-        val cat = s.category ?: return
-        val amt = s.amount.toDoubleOrNull() ?: return
-        repo.addExpense(Expense(
-            category = cat, amount = amt, note = s.description,
-            tripId = s.tripId, truckId = s.truckNumber
-        ))
-        if (cat == ExpenseCategory.DIESEL && s.liters.isNotBlank()) {
-            repo.addFuelEntry(FuelEntry(
-                truckId = s.truckNumber,
-                liters = s.liters.toDoubleOrNull() ?: 0.0,
-                pricePerLiter = s.ratePerLiter.toDoubleOrNull() ?: 0.0,
-                totalAmount = amt
+    fun saveExpense(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _addState.update { it.copy(isSaving = true) }
+            val s = _addState.value
+            val amt = s.amount.toDoubleOrNull() ?: 0.0
+            expenseRepo.addExpense(Expense(
+                category = s.category ?: ExpenseCategory.OTHER, amount = amt,
+                note = s.note, truckId = s.truckId, truckNumber = s.truckNumber, tripId = s.tripId
             ))
+            if (s.category == ExpenseCategory.DIESEL && s.liters.isNotBlank()) {
+                expenseRepo.addFuelEntry(FuelEntry(
+                    truckId = s.truckId, truckNumber = s.truckNumber,
+                    liters = s.liters.toDoubleOrNull() ?: 0.0,
+                    pricePerLiter = s.pricePerLiter.toDoubleOrNull() ?: 0.0,
+                    totalAmount = amt
+                ))
+            }
+            _addState.update { it.copy(isSaving = false) }
+            resetAddState()
+            onSuccess()
         }
-        _addState.value = AddExpenseState(showSuccess = true)
     }
 
-    fun resetAdd() { _addState.value = AddExpenseState() }
-    fun dismissSuccess() = _addState.update { it.copy(showSuccess = false) }
-
-    fun getCategoryBreakdown() = repo.getCategoryBreakdown()
-    fun getTodayExpense() = repo.getTodayExpense()
-    fun getWeekExpense() = repo.getWeekExpense()
-    fun getMonthExpense() = repo.getMonthExpense()
-    fun deleteExpense(id: String) = repo.deleteExpense(id)
+    fun deleteExpense(id: Long) { viewModelScope.launch { expenseRepo.deleteExpense(id) } }
 }

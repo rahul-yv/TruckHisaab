@@ -1,63 +1,66 @@
 package com.truckhisaab.ui.screens.report
 
 import androidx.lifecycle.ViewModel
-import com.truckhisaab.data.AppContainer
-import com.truckhisaab.data.model.ExpenseCategory
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import androidx.lifecycle.viewModelScope
+import com.truckhisaab.domain.model.*
+import com.truckhisaab.domain.repository.*
+import com.truckhisaab.util.*
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class ReportState(
-    val totalIncome: Double = 0.0,
-    val totalExpense: Double = 0.0,
-    val weekIncome: Double = 0.0,
-    val weekExpense: Double = 0.0,
-    val monthIncome: Double = 0.0,
-    val monthExpense: Double = 0.0,
-    val categoryBreakdown: Map<ExpenseCategory, Double> = emptyMap(),
-    val truckBreakdown: Map<String, Pair<Double, Double>> = emptyMap(),
-    val partyBreakdown: Map<String, Double> = emptyMap()
-) {
-    val totalProfit get() = totalIncome - totalExpense
-    val weekProfit get() = weekIncome - weekExpense
-    val monthProfit get() = monthIncome - monthExpense
-}
+    val period: String = "month",
+    val totalIncome: Double = 0.0, val totalExpense: Double = 0.0,
+    val categoryBreakdown: List<CategoryBreakdown> = emptyList(),
+    val truckBreakdown: List<TruckPnL> = emptyList(),
+    val partyBreakdown: List<PartyBreakdown> = emptyList(),
+    val isLoading: Boolean = true
+)
 
-class ReportViewModel : ViewModel() {
-    private val tripRepo = AppContainer.tripRepository
-    private val expenseRepo = AppContainer.expenseRepository
+@HiltViewModel
+class ReportViewModel @Inject constructor(
+    private val tripRepo: TripRepository,
+    private val expenseRepo: ExpenseRepository,
+    private val truckRepo: TruckRepository
+) : ViewModel() {
 
     private val _state = MutableStateFlow(ReportState())
     val state: StateFlow<ReportState> = _state.asStateFlow()
 
-    init { refresh() }
+    init { loadReport("month") }
 
-    fun refresh() {
-        val trips = tripRepo.trips.value
-        val expenses = expenseRepo.expenses.value
-
-        val totalIncome = trips.sumOf { it.freightAmount }
-        val totalExpense = expenses.sumOf { it.amount }
-
-        val truckBreakdown = mutableMapOf<String, Pair<Double, Double>>()
-        trips.groupBy { it.truckNumber }.forEach { (truck, tList) ->
-            val inc = tList.sumOf { it.freightAmount }
-            val exp = expenses.filter { it.truckId == truck }.sumOf { it.amount }
-            truckBreakdown[truck] = inc to exp
+    fun loadReport(period: String) {
+        val since = when (period) {
+            "today" -> startOfToday()
+            "week" -> startOfWeek()
+            "month" -> startOfMonth()
+            "year" -> startOfYear()
+            else -> startOfMonth()
         }
+        _state.update { it.copy(period = period, isLoading = true) }
 
-        val partyBreakdown = trips.groupBy { it.partyName }.mapValues { (_, tList) -> tList.sumOf { it.freightAmount } }
+        tripRepo.getIncomeSince(since).onEach { v -> _state.update { it.copy(totalIncome = v) } }.launchIn(viewModelScope)
+        expenseRepo.getExpenseSince(since).onEach { v -> _state.update { it.copy(totalExpense = v) } }.launchIn(viewModelScope)
+        expenseRepo.getCategoryBreakdown(since).onEach { v -> _state.update { it.copy(categoryBreakdown = v) } }.launchIn(viewModelScope)
 
-        _state.value = ReportState(
-            totalIncome = totalIncome,
-            totalExpense = totalExpense,
-            weekIncome = tripRepo.getWeekIncome(),
-            weekExpense = expenseRepo.getWeekExpense(),
-            monthIncome = tripRepo.getMonthIncome(),
-            monthExpense = expenseRepo.getMonthExpense(),
-            categoryBreakdown = expenseRepo.getCategoryBreakdown(),
-            truckBreakdown = truckBreakdown,
-            partyBreakdown = partyBreakdown
-        )
+        viewModelScope.launch {
+            combine(tripRepo.getAllTrips(), expenseRepo.getAllExpenses(), truckRepo.getAllTrucks()) { trips, expenses, trucks ->
+                val filtered = trips.filter { it.startDate >= since && it.status != TripStatus.CANCELLED }
+                val truckPnl = trucks.map { truck ->
+                    val tTrips = filtered.filter { it.truckId == truck.id }
+                    val tIncome = tTrips.sumOf { it.freightAmount }
+                    val tExpense = expenses.filter { it.truckId == truck.id && it.date >= since }.sumOf { it.amount }
+                    TruckPnL(truck.number, tIncome, tExpense, tIncome - tExpense, tTrips.size)
+                }.filter { it.trips > 0 }
+
+                val partyPnl = filtered.groupBy { it.partyName }.map { (party, pTrips) ->
+                    PartyBreakdown(party.ifBlank { "Unknown" }, pTrips.sumOf { it.freightAmount }, pTrips.size)
+                }.sortedByDescending { it.totalAmount }
+
+                _state.update { it.copy(truckBreakdown = truckPnl, partyBreakdown = partyPnl, isLoading = false) }
+            }.collect()
+        }
     }
 }
