@@ -1,60 +1,51 @@
 package com.truckhisaab.ui.screens.truck
 
 import androidx.lifecycle.ViewModel
-import com.truckhisaab.data.AppContainer
-import com.truckhisaab.data.model.Truck
-import com.truckhisaab.data.model.TruckType
-import com.truckhisaab.data.model.truckManufacturers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import androidx.lifecycle.viewModelScope
+import com.truckhisaab.domain.model.*
+import com.truckhisaab.domain.repository.*
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class AddTruckState(
-    val number: String = "",
-    val type: TruckType? = null,
-    val manufacturer: String = "",
-    val model: String = "",
-    val year: String = "",
-    val showSuccess: Boolean = false
+    val number: String = "", val type: TruckType = TruckType.OPEN_BODY,
+    val manufacturer: String = "", val model: String = "",
+    val year: String = "2024", val isSaving: Boolean = false
 )
 
-class TruckViewModel : ViewModel() {
-    private val repo = AppContainer.truckRepository
-    val trucks = repo.trucks
+@HiltViewModel
+class TruckViewModel @Inject constructor(
+    private val truckRepo: TruckRepository,
+    private val tripRepo: TripRepository,
+    private val expenseRepo: ExpenseRepository,
+    private val documentRepo: DocumentRepository
+) : ViewModel() {
+
+    val trucks = truckRepo.getAllTrucks().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _addState = MutableStateFlow(AddTruckState())
     val addState: StateFlow<AddTruckState> = _addState.asStateFlow()
 
-    fun updateField(field: String, value: String) {
-        _addState.update {
-            when (field) {
-                "number" -> it.copy(number = value)
-                "manufacturer" -> it.copy(manufacturer = value)
-                "model" -> it.copy(model = value)
-                "year" -> it.copy(year = value)
-                else -> it
-            }
+    fun updateAddState(update: AddTruckState.() -> AddTruckState) { _addState.update { it.update() } }
+    fun resetAddState() { _addState.value = AddTruckState() }
+
+    fun saveTruck(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _addState.update { it.copy(isSaving = true) }
+            val s = _addState.value
+            truckRepo.addTruck(Truck(
+                number = s.number.uppercase(), type = s.type, manufacturer = s.manufacturer,
+                model = s.model, yearOfPurchase = s.year.toIntOrNull() ?: 2024
+            ))
+            _addState.update { it.copy(isSaving = false) }
+            resetAddState()
+            onSuccess()
         }
     }
 
-    fun setType(t: TruckType) = _addState.update { it.copy(type = t) }
-
-    fun saveTruck() {
-        val s = _addState.value
-        val t = s.type ?: return
-        repo.addTruck(Truck(
-            number = s.number, type = t, manufacturer = s.manufacturer,
-            model = s.model, yearOfPurchase = s.year.toIntOrNull() ?: 2024
-        ))
-        _addState.value = AddTruckState(showSuccess = true)
-    }
-
-    fun resetAdd() { _addState.value = AddTruckState() }
-    fun dismissSuccess() = _addState.update { it.copy(showSuccess = false) }
-    fun getTruck(id: String) = repo.getTruck(id)
-    fun deleteTruck(id: String) = repo.deleteTruck(id)
-    fun getTruckTrips(number: String) = AppContainer.tripRepository.getTripsForTruck(number)
-    fun getTruckExpenses(number: String) = AppContainer.expenseRepository.expenses.value.filter { it.truckId == number }
-    fun getTruckDocs(number: String) = AppContainer.documentRepository.documents.value.filter { it.truckNumber == number }
+    fun getTripsForTruck(id: Long) = tripRepo.getTripsForTruck(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun getExpensesForTruck(id: Long) = expenseRepo.getExpensesForTruck(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun getDocsForTruck(id: Long) = documentRepo.getDocumentsForTruck(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 }

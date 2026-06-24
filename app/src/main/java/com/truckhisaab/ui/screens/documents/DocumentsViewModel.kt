@@ -1,71 +1,58 @@
 package com.truckhisaab.ui.screens.documents
 
 import androidx.lifecycle.ViewModel
-import com.truckhisaab.data.AppContainer
-import com.truckhisaab.data.model.Document
-import com.truckhisaab.data.model.DocumentType
-import com.truckhisaab.data.model.getDocumentStatus
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import androidx.lifecycle.viewModelScope
+import com.truckhisaab.domain.model.*
+import com.truckhisaab.domain.repository.*
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class AddDocState(
-    val type: DocumentType? = null,
-    val number: String = "",
-    val truckNumber: String = "",
-    val issueDate: Long = System.currentTimeMillis(),
-    val expiryDate: Long = System.currentTimeMillis() + 365 * 86400000L,
-    val reminderDays: Int = 30,
-    val showSuccess: Boolean = false
+    val type: DocumentType? = null, val truckId: Long = 0, val truckNumber: String = "",
+    val documentNumber: String = "", val issueDate: Long = System.currentTimeMillis(),
+    val expiryDate: Long = System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000,
+    val reminderDays: List<Int> = listOf(30, 15, 7), val isSaving: Boolean = false
 )
 
-class DocumentsViewModel : ViewModel() {
-    private val repo = AppContainer.documentRepository
-    val documents = repo.documents
+@HiltViewModel
+class DocumentsViewModel @Inject constructor(
+    private val documentRepo: DocumentRepository,
+    private val truckRepo: TruckRepository
+) : ViewModel() {
+
+    val documents = documentRepo.getAllDocuments().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val trucks = truckRepo.getAllTrucks().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _addState = MutableStateFlow(AddDocState())
     val addState: StateFlow<AddDocState> = _addState.asStateFlow()
 
-    private val _truckFilter = MutableStateFlow<String?>(null)
-    val truckFilter: StateFlow<String?> = _truckFilter.asStateFlow()
+    private val _truckFilter = MutableStateFlow(0L)
+    val truckFilter: StateFlow<Long> = _truckFilter.asStateFlow()
 
-    fun filteredDocs(): List<Document> {
-        val tf = _truckFilter.value
-        var list = documents.value
-        if (tf != null) list = list.filter { it.truckNumber == tf }
-        return list.sortedBy { it.expiryDate }
-    }
+    val filteredDocs = combine(documents, _truckFilter) { docs, tId ->
+        if (tId == 0L) docs else docs.filter { it.truckId == tId }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun setTruckFilter(truck: String?) { _truckFilter.value = truck }
+    fun setTruckFilter(id: Long) { _truckFilter.value = id }
+    fun updateAddState(update: AddDocState.() -> AddDocState) { _addState.update { it.update() } }
+    fun resetAddState() { _addState.value = AddDocState() }
 
-    fun updateAddField(field: String, value: String) {
-        _addState.update {
-            when (field) {
-                "number" -> it.copy(number = value)
-                "truck" -> it.copy(truckNumber = value)
-                else -> it
-            }
+    fun saveDocument(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _addState.update { it.copy(isSaving = true) }
+            val s = _addState.value
+            documentRepo.addDocument(Document(
+                type = s.type ?: DocumentType.OTHER, truckId = s.truckId, truckNumber = s.truckNumber,
+                documentNumber = s.documentNumber, issueDate = s.issueDate, expiryDate = s.expiryDate,
+                reminderDays = s.reminderDays
+            ))
+            _addState.update { it.copy(isSaving = false) }
+            resetAddState()
+            onSuccess()
         }
     }
 
-    fun setDocType(t: DocumentType) = _addState.update { it.copy(type = t) }
-    fun setReminderDays(d: Int) = _addState.update { it.copy(reminderDays = d) }
-
-    fun saveDoc() {
-        val s = _addState.value
-        val t = s.type ?: return
-        repo.addDocument(Document(
-            type = t, documentNumber = s.number, truckNumber = s.truckNumber,
-            issueDate = s.issueDate, expiryDate = s.expiryDate,
-            reminderDays = listOf(s.reminderDays, 15, 7, 1)
-        ))
-        _addState.value = AddDocState(showSuccess = true)
-    }
-
-    fun resetAdd() { _addState.value = AddDocState() }
-    fun dismissSuccess() = _addState.update { it.copy(showSuccess = false) }
-    fun deleteDoc(id: String) = repo.deleteDocument(id)
-    fun getDoc(id: String) = repo.getDocument(id)
-    fun getExpiringDocs() = repo.getExpiringDocuments(30)
+    fun deleteDocument(id: Long) { viewModelScope.launch { documentRepo.deleteDocument(id) } }
 }

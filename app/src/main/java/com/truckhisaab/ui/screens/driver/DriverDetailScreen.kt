@@ -1,54 +1,33 @@
 package com.truckhisaab.ui.screens.driver
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.truckhisaab.ui.components.ConfirmDialog
-import com.truckhisaab.ui.components.THTopBar
-import com.truckhisaab.ui.components.formatINR
-import com.truckhisaab.ui.theme.DangerRed
-import com.truckhisaab.ui.theme.InfoBlue
-import com.truckhisaab.ui.theme.SuccessGreen
-import com.truckhisaab.ui.theme.TextSecondary
-import com.truckhisaab.ui.theme.TruckRed
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.truckhisaab.ui.components.*
+import com.truckhisaab.ui.theme.*
 
 @Composable
-fun DriverDetailScreen(driverId: String, onBack: () -> Unit, viewModel: DriverViewModel = viewModel()) {
-    val driver = viewModel.getDriver(driverId) ?: run { onBack(); return }
-    val trips = viewModel.getDriverTrips(driver.name)
-    val totalFreight = trips.sumOf { it.freightAmount }
+fun DriverDetailScreen(driverId: Long, onBack: () -> Unit, viewModel: DriverViewModel = hiltViewModel()) {
+    val drivers by viewModel.drivers.collectAsState()
+    val driver = drivers.find { it.id == driverId }
+    val trips by viewModel.getTripsForDriver(driverId).collectAsState()
     var showDelete by remember { mutableStateOf(false) }
 
+    if (driver == null) { LoadingState(); return }
+
     if (showDelete) {
-        ConfirmDialog("Delete Driver", "Pakka delete karna hai?", onConfirm = { viewModel.deleteDriver(driverId); onBack() }, onDismiss = { showDelete = false })
+        ConfirmDialog("Delete Driver", "Pakka delete karna hai?", onConfirm = { viewModel.deleteDriver(driverId) { onBack() } }, onDismiss = { showDelete = false })
     }
 
     Scaffold(
@@ -71,9 +50,10 @@ fun DriverDetailScreen(driverId: String, onBack: () -> Unit, viewModel: DriverVi
                 }
             }
 
+            val totalFreight = trips.sumOf { it.freightAmount }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard("Total Trips", "${trips.size}", TruckRed, Modifier.weight(1f))
-                StatCard("Total Freight", formatINR(totalFreight), SuccessGreen, Modifier.weight(1f))
+                StatMiniCard("Total Trips", "${trips.size}", TruckRed, Modifier.weight(1f))
+                StatMiniCard("Total Freight", formatINR(totalFreight), SuccessGreen, Modifier.weight(1f))
             }
 
             if (trips.isNotEmpty()) {
@@ -83,7 +63,7 @@ fun DriverDetailScreen(driverId: String, onBack: () -> Unit, viewModel: DriverVi
                         Spacer(Modifier.height(8.dp))
                         trips.take(5).forEach { t ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("${t.fromLocation}→${t.toLocation}", fontSize = 13.sp)
+                                Text("${t.fromLocation} → ${t.toLocation}", fontSize = 13.sp)
                                 Text(formatINR(t.freightAmount), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SuccessGreen)
                             }
                         }
@@ -104,7 +84,7 @@ private fun DetailRow(label: String, value: String) {
 }
 
 @Composable
-private fun StatCard(label: String, value: String, color: Color, modifier: Modifier) {
+private fun StatMiniCard(label: String, value: String, color: Color, modifier: Modifier) {
     Card(modifier, shape = RoundedCornerShape(10.dp), colors = CardDefaults.cardColors(containerColor = color.copy(0.1f))) {
         Column(Modifier.padding(12.dp)) {
             Text(label, fontSize = 11.sp, color = TextSecondary)
