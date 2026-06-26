@@ -175,5 +175,5 @@ Indian Truckers - Jo daily road pe struggle karte hain, unke liye ye product
   <b>Truck ka hisaab, ab aasaan</b> 🚛💨
 </p>
 <p align="center">
-  Made with ❤️ in India for 2.5 Crore Truckers
+  Made with  in India for 2.5 Crore Truckers
 </p>
