@@ -172,7 +172,7 @@ Render - Free hosting
 MongoDB - Free database tier
 Indian Truckers - Jo daily road pe struggle karte hain, unke liye ye product
 <p align="center">
-  <b>Truck ka hisaab, ab aasaan</b> 🚛💨
+  <b>Truck ka hisaab, ab aasaan</b> 🚛
 </p>
 <p align="center">
   Made with love in India for 2.5 Crore Truckers
